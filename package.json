@@ -1,0 +1,10 @@
+{
+    "private": true,
+    "scripts": {
+        "postinstall": "dotnet tool restore",
+        "start": "dotnet fable watch src/App -s --outDir ./src/App/.fable-build --run vite"
+    },
+    "dependencies": {
+        "vite": "^4.0.4"
+    }
+}
