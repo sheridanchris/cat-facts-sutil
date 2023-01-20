@@ -44,6 +44,11 @@ let update msg model =
         },
         Cmd.none
 
+let renderError (error: string option) =
+    match error with
+    | Some error -> Html.p error
+    | None -> Html.none
+
 let view () =
     let dispose = fun _ -> ()
     let model, dispatch = () |> Store.makeElmish initialState update dispose
@@ -51,14 +56,7 @@ let view () =
     Html.div [
         disposeOnUnmount [ model ]
 
-        Bind.el (
-            model |> Store.map error,
-            fun error ->
-                match error with
-                | Some error -> Html.p error
-                | None -> Html.none
-        )
-
+        Bind.el (model |> Store.map error, renderError)
         Bind.el (model |> Store.map fact, Html.p)
         Html.button [ text "Get cat fact"; onClick (fun _ -> dispatch GetFact) [] ]
     ]
