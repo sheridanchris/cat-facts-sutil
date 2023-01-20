@@ -4,19 +4,19 @@ open Sutil.Attr
 open Sutil.DOM
 open Thoth.Json
 
-type Model = { Fact: string }
+type Model = { Fact: string; Error: string option }
 
 type HttpResponse<'a> =
-    | OkResponse of 'a
-    | FailureResponse
+    | Response of 'a
+    | Failure of reason: string
 
 type Msg =
     | GetFact
     | GotResponse of HttpResponse<string>
 
 let fact model = model.Fact
+let error model = model.Error
 
-// TODO: Model failure states.
 let getFact () = async {
     let! response = Http.request "https://catfact.ninja/fact" |> Http.method GET |> Http.send
 
@@ -25,19 +25,24 @@ let getFact () = async {
             let factResponse = Decode.Auto.fromString<{| fact: string |}> response.responseText
 
             match factResponse with
-            | Ok fact -> OkResponse fact.fact
-            | Result.Error _ -> FailureResponse
+            | Ok factResponse -> Response factResponse.fact
+            | Result.Error reason -> Failure reason
         else
-            FailureResponse
+            Failure "Request wasn't successful."
 }
 
-let initialState () = { Fact = "" }, Cmd.none
+let initialState () = { Fact = ""; Error = None }, Cmd.none
 
 let update msg model =
     match msg with
     | GetFact -> model, Cmd.OfAsync.perform getFact () GotResponse
-    | GotResponse(OkResponse fact) -> { model with Fact = fact }, Cmd.none
-    | GotResponse FailureResponse -> { model with Fact = "" }, Cmd.none
+    | GotResponse(Response fact) -> { model with Fact = fact; Error = None }, Cmd.none
+    | GotResponse(Failure error) ->
+        { model with
+            Fact = ""
+            Error = Some error
+        },
+        Cmd.none
 
 let view () =
     let dispose = fun _ -> ()
@@ -45,11 +50,17 @@ let view () =
 
     Html.div [
         disposeOnUnmount [ model ]
-        Bind.fragment (model |> Store.map fact) <| Html.p
-        Html.button [
-            text "Get cat fact"
-            onClick (fun _ -> dispatch GetFact) []
-        ]
+
+        Bind.el (
+            model |> Store.map error,
+            fun error ->
+                match error with
+                | Some error -> Html.p error
+                | None -> Html.none
+        )
+
+        Bind.el (model |> Store.map fact, Html.p)
+        Html.button [ text "Get cat fact"; onClick (fun _ -> dispatch GetFact) [] ]
     ]
 
 // Start the app
